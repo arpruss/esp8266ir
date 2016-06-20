@@ -1,4 +1,4 @@
-// Copyright 
+// public domain code by Alexander Pruss
 
 #include <ESP8266WiFi.h>
 #include <IRremoteESP8266.h>
