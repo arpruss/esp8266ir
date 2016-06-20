@@ -1,3 +1,5 @@
+# public domain by Alexander Pruss
+
 import socket
 import StringIO
 import select
