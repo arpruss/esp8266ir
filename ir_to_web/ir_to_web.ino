@@ -26,9 +26,10 @@ static IRrecv irrecv(RECV_PIN);
 void  setup ( )
 {
   Serial.begin(115200); 
+  Serial.println("Attempting to connect\r\n");
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
-  Serial.println(String("IRToWebThingy on ")+WiFi.localIP().toString()+String(":")+PORT);
+  Serial.println(String("IRToWebThingy on ")+WiFi.localIP().toString()+String(":")+PORT+"\r\n");
   irrecv.enableIRIn();  // Start the receiver
   server.begin();
   server.setNoDelay(true);
@@ -78,18 +79,6 @@ char* encoding (decode_results *results)
 
 
 
-void toLineData(decode_results *results)
-{
-  unsigned int aux = 0;
-  if (results->decode_type == PANASONIC)
-    aux = results->panasonicAddress;
-  else if (results->decode_type == MAGIQUEST)
-    aux = results->magiquestMagnitude;
-  sprintf(lineData, "%s,%d,%lx,%x", encoding(results),
-    (int)results->bits, (unsigned long)results->value, aux);
-}
-
-
 void loop()
 {
   if (server.hasClient()) {
@@ -108,7 +97,14 @@ void loop()
   decode_results  result;        
 
   if (irrecv.decode(&result) && result.decode_type != UNKNOWN) {  
-      toLineData(&result);
+      unsigned int aux = 0;
+      if (result.decode_type == PANASONIC)
+        aux = result.panasonicAddress;
+      else if (result.decode_type == MAGIQUEST)
+        aux = result.magiquestMagnitude;
+      sprintf(lineData, "%s,%ld,%d,%lx,%x", 
+        encoding(&result), millis(), (int)result.bits, 
+        (unsigned long)result.value, aux);
       Serial.println(lineData);
       for (int i = 0 ; i < MAX_CLIENTS ; i++) {
         if (serverClients[i] && serverClients[i].connected()) {

@@ -4,6 +4,25 @@ import socket
 import StringIO
 import select
 
+class ESPRemoteEvent(object):
+    def __init__(self, line):
+        d = line.strip().split(",",5)
+        self.format = d[0]
+        self.time = long(d[1])
+        self.bits = int(d[2])
+        self.data = long(d[3], 16)
+        self.extra = int(d[4])
+        if len(d) > 5:
+            self.rest = int(d[5])
+        else:
+            self.rest = None
+
+    def __str__(self):
+        out = "format=%s time=%d bits=%d data=%x extra=%d" % (self.format, self.time, self.bits, self.data, self.extra)
+        if self.rest is not None:
+            out += " more data:"+self.rest
+        return out
+
 class ESPRemote(object):
     def __init__(self, address="192.168.1.102", port=5678):
         self.address = address
@@ -22,13 +41,20 @@ class ESPRemote(object):
             if d == "\n" or not d:
                 return b.getvalue()
                 
-    def readlines(self):
+    def getevent(self):
+        l = self.readline()
+        if l:
+            return ESPRemoteEvent(l)
+        else:
+            return None
+                
+    def getevents(self):
         while True:
-            l = self.readline()
-            if not l:
+            e = self.getevent()
+            if not e:
                 self.close()
                 return
-            yield l
+            yield e
                 
     def available(self):
         return bool(select.select([self.sock], [], [], 0.0)[0])
@@ -39,6 +65,6 @@ class ESPRemote(object):
 if __name__=="__main__":
     r = ESPRemote()
     print "Thingy on "+str(r.address)+":"+str(r.port)
-    for l in r.readlines():
-        print l.strip()
+    for e in r.getevents():
+        print str(e)
         
