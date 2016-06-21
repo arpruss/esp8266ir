@@ -10,14 +10,15 @@
 const char* ssid = "xxxx";
 const char* password = "yyyy";
 #else
-#include "../private.h"
+#include "c:/users/alexander/Documents/Arduino/private.h"
 #endif
+
+#define PORT 5678
 
 char lineData[256];
 
-WiFiServer server(5678);
+WiFiServer server(PORT);
 WiFiClient serverClients[MAX_CLIENTS];
-
 static int RECV_PIN = 0; // IR decoder pin
 
 static IRrecv irrecv(RECV_PIN);
@@ -27,7 +28,7 @@ void  setup ( )
   Serial.begin(115200); 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
-  Serial.println(String("Connected as ")+WiFi.localIP().toString()+String(":5678"));
+  Serial.println(String("IRToWebThingy on ")+WiFi.localIP().toString()+String(":")+PORT);
   irrecv.enableIRIn();  // Start the receiver
   server.begin();
   server.setNoDelay(true);
@@ -97,6 +98,7 @@ void loop()
         if (serverClients[i])
           serverClients[i].stop();
         serverClients[i] = server.available();
+        serverClients[i].write("IRToWebThingy ready\r\n");
         return;
       }
     }
