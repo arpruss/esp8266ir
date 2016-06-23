@@ -77,14 +77,13 @@ char* encoding (decode_results *results)
   }
 }
 
-
-
 void loop()
 {
   if (server.hasClient()) {
     for (int i = 0; i < MAX_CLIENTS ; i++) {
       if (!serverClients[i] || !serverClients[i].connected()) {
         if (serverClients[i])
+        
           serverClients[i].stop();
         serverClients[i] = server.available();
         serverClients[i].write("IRToWebThingy ready\r\n");
@@ -94,25 +93,27 @@ void loop()
     server.available().stop();
   }
 
-  decode_results  result;        
+  decode_results  result;      
 
-  if (irrecv.decode(&result) && result.decode_type != UNKNOWN) {  
-      unsigned int aux = 0;
-      if (result.decode_type == PANASONIC)
-        aux = result.panasonicAddress;
-      else if (result.decode_type == MAGIQUEST)
-        aux = result.magiquestMagnitude;
-      sprintf(lineData, "%s,%ld,%d,%lx,%x", 
-        encoding(&result), millis(), (int)result.bits, 
-        (unsigned long)result.value, aux);
-      Serial.println(lineData);
-      for (int i = 0 ; i < MAX_CLIENTS ; i++) {
-        if (serverClients[i] && serverClients[i].connected()) {
-          serverClients[i].write((const uint8_t*) lineData, (int)strlen(lineData));
-          serverClients[i].write("\r\n", 2);
-        }
+  if (irrecv.decode(&result)) {
+      irrecv.resume();  
+      if (result.decode_type != UNKNOWN) {  
+          unsigned int aux = 0;
+          if (result.decode_type == PANASONIC)
+            aux = result.panasonicAddress;
+          else if (result.decode_type == MAGIQUEST)
+            aux = result.magiquestMagnitude;
+          sprintf(lineData, "%s,%ld,%d,%lx,%x", 
+            encoding(&result), millis(), (int)result.bits, 
+            (unsigned long)result.value, aux);
+          Serial.println(lineData);
+          for (int i = 0 ; i < MAX_CLIENTS ; i++) {
+            if (serverClients[i] && serverClients[i].connected()) {
+              serverClients[i].write((const uint8_t*) lineData, (int)strlen(lineData));
+              serverClients[i].write("\r\n", 2);
+            }
+          }
       }
-      irrecv.resume();              
   }
 }
 
