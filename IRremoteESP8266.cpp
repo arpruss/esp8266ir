@@ -500,10 +500,12 @@ void IRrecv::enableIRIn() {
   // initialize state machine variables
   irparams.rcvstate = STATE_IDLE;
   irparams.rawlen = 0;
-
+  
   // set pin modes  
   //PIN_FUNC_SELECT(IR_IN_MUX, IR_IN_FUNC);
-  GPIO_DIS_OUTPUT(irparams.recvpin);
+
+//  GPIO_DIS_OUTPUT(irparams.recvpin);
+  pinMode(irparams.recvpin, INPUT_PULLUP);  
   
   // Initialize timer
   os_timer_disarm(&timer);
@@ -534,6 +536,10 @@ void IRrecv::resume() {
   irparams.rawlen = 0;
 }
 
+int fixbits(decode_results *results) {
+    results->value = ((((uint32_t)1 << results->bits)-1) & results->value);
+}
+
 // Decodes the received IR message
 // Returns 0 if no data ready, 1 if data ready.
 // Results of decoding are stored in results
@@ -544,12 +550,14 @@ int IRrecv::decode(decode_results *results) {
     return ERR;
   }
   if (decodeMagiQuest(results)) {
-        return DECODED;
+    fixbits(results);
+    return DECODED;
   }
 #ifdef DEBUG
   Serial.println("Attempting NEC decode");
 #endif
   if (decodeNEC(results)) {
+    fixbits(results);
     return DECODED;
   }
 
@@ -557,6 +565,7 @@ int IRrecv::decode(decode_results *results) {
   Serial.println("Attempting Sony decode");
 #endif
   if (decodeSony(results)) {
+    fixbits(results);
     return DECODED;
   }
   /*
@@ -570,54 +579,63 @@ int IRrecv::decode(decode_results *results) {
   Serial.println("Attempting Mitsubishi decode");
 #endif
   if (decodeMitsubishi(results)) {
+    fixbits(results);
     return DECODED;
   }
 #ifdef DEBUG
   Serial.println("Attempting RC5 decode");
 #endif  
   if (decodeRC5(results)) {
+    fixbits(results);
     return DECODED;
   }
 #ifdef DEBUG
   Serial.println("Attempting RC6 decode");
 #endif 
   if (decodeRC6(results)) {
+    fixbits(results);
     return DECODED;
   }
 #ifdef DEBUG
     Serial.println("Attempting Panasonic decode");
 #endif 
     if (decodePanasonic(results)) {
+        fixbits(results);
         return DECODED;
     }
 #ifdef DEBUG
     Serial.println("Attempting LG decode");
 #endif 
     if (decodeLG(results)) {
+        fixbits(results);
         return DECODED;
     }
 #ifdef DEBUG
     Serial.println("Attempting JVC decode");
 #endif 
     if (decodeJVC(results)) {
+        fixbits(results);
         return DECODED;
     }
 #ifdef DEBUG
   Serial.println("Attempting SAMSUNG decode");
 #endif
   if (decodeSAMSUNG(results)) {
+    fixbits(results);
     return DECODED;
   }
 #ifdef DEBUG
   Serial.println("Attempting Whynter decode");
 #endif
   if (decodeWhynter(results)) {
+    fixbits(results);
     return DECODED;
   }
   // decodeHash returns a hash on any input.
   // Thus, it needs to be last in the list.
   // If you add any decodes, add them before this.
   if (decodeHash(results)) {
+    fixbits(results);
     return DECODED;
   }
   // Throw away and start over
@@ -1286,6 +1304,7 @@ long IRrecv::decodeMagiQuest(decode_results *results) {
   }
   results->magiquestMagnitude = data.cmd.magnitude;
   results->value = data.cmd.wand_id;
+  results->bits = 32;
   uint8_t* p = (uint8_t*)&(data.cmd.wand_id);
   results->decode_type = MAGIQUEST;
   return DECODED;
