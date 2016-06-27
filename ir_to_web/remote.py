@@ -29,7 +29,7 @@ for event in ESPRemote().getevents():
         shell.SendKeys("\xAF")
     elif data == 0x459:
         shell.SendKeys("\xAE")
-    elif data == 0x040:
+    elif data == 0x40C:
         exit()
     else:
         print hex(event.data)

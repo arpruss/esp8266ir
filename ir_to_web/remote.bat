@@ -1,1 +1,1 @@
-c:\python27x32\python.exe c:\cygwin64\home\alexander\remote.py
+c:\python27x32\python.exe C:\Users\Alexander\Documents\Arduino\ir_to_web\remote.py
