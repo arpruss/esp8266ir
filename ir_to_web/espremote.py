@@ -24,7 +24,7 @@ class ESPRemoteEvent(object):
         return out
 
 class ESPRemote(object):
-    def __init__(self, address="192.168.1.102", port=5678):
+    def __init__(self, address="192.168.1.123", port=5678):
         self.address = address
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
