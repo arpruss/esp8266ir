@@ -1,0 +1,1 @@
+c:\python27x32\python.exe c:\cygwin64\home\alexander\remote.py
