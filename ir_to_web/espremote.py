@@ -4,24 +4,54 @@ import socket
 import StringIO
 import select
 
+
 class ESPRemoteEvent(object):
     def __init__(self, line):
-        d = line.strip().split(",",5)
-        self.format = d[0]
-        self.time = long(d[1])
-        self.bits = int(d[2])
-        self.data = long(d[3], 16)
-        self.extra = int(d[4])
-        if len(d) > 5:
-            self.rest = int(d[5])
-        else:
-            self.rest = None
+        try:
+            d = line.strip().split(",")
+            self.format = d[0]
+        except:
+            self.format = ""
+        try:
+            self.time = long(d[1])
+        except:
+            self.time = 0
+        try:
+            self.bits = int(d[2])
+        except:
+            self.bits = 0
+        try:
+            if self.bits > 31:
+                self.data = long(d[3], 16)
+            else:
+                self.data = int(d[3], 16)
+        except:
+            self.data = 0
+        self.extras = {}
+        for entry in d[4:]:
+            try:
+                label,stringValue = entry.split("=")
+                self.extras[label] = ESPRemoteEvent.number(stringValue)
+            except:
+                pass
 
     def __str__(self):
-        out = "format=%s time=%d bits=%d data=%x extra=%d" % (self.format, self.time, self.bits, self.data, self.extra)
-        if self.rest is not None:
-            out += " more data:"+self.rest
+        out = "format=%s time=%d bits=%d data=%x" % (self.format, self.time, self.bits, self.data)
+        if len(self.extras):
+            out += " extras: "+str(self.extras)
         return out
+        
+    @staticmethod
+    def number(s):
+        try:
+            xl = long(s)
+            xi = int(s)
+            if xl == xi:
+                return xi
+            else:
+                return xl
+        except:
+            return 0
 
 class ESPRemote(object):
     def __init__(self, address="192.168.1.123", port=5678):

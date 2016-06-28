@@ -17,8 +17,8 @@
 #define SSID_LENGTH 33
 #define PSK_LENGTH  64
 #if 0
-const char ssid[SSID_LENGTH] = "xxxx";
-const char psk[PSK_LENGTH] = "yyyy";
+char ssid[SSID_LENGTH] = "xxxx";
+char psk[PSK_LENGTH] = "yyyy";
 #else
 #include "c:/users/alexander/Documents/Arduino/private.h"
 #endif
@@ -37,12 +37,14 @@ WiFiClient serverClients[MAX_CLIENTS];
 int latestClient = -1;
 static int RECV_PIN = 0; // IR decoder pin
 static uint8_t serialMode = QUIET;
+static uint8_t unknown = 0;
 
 static IRrecv irrecv(RECV_PIN);
 
 #define SSID_OFFSET 2
 #define PSK_OFFSET (SSID_OFFSET+SSID_LENGTH)
 #define SERIAL_MODE_OFFSET (PSK_OFFSET+PSK_LENGTH)
+#define UNKNOWN_MODE_OFFSET (SERIAL_MODE_OFFSET+1)
 
 void LoadSettings() {
     uint8_t buffer[512];
@@ -62,6 +64,7 @@ void LoadSettings() {
     memcpy(ssid, buffer+SSID_OFFSET, SSID_LENGTH);
     memcpy(psk, buffer+PSK_OFFSET, PSK_LENGTH);
     serialMode = buffer[SERIAL_MODE_OFFSET];
+    unknown = buffer[UNKNOWN_MODE_OFFSET];
 }
 
 void setup()
@@ -96,6 +99,7 @@ void SaveSettings() {
   memcpy(buffer+SSID_OFFSET, ssid, SSID_LENGTH);
   memcpy(buffer+PSK_OFFSET, psk, PSK_LENGTH);
   buffer[SERIAL_MODE_OFFSET] = serialMode;
+  buffer[UNKNOWN_MODE_OFFSET] = unknown;
   uint8_t sum = 0;
   for (int i = 2 ; i < 512 ; i++) {
      sum += buffer[i];
@@ -117,7 +121,8 @@ void processCommand(char* command) {
     strcpy(lineData, "ssid [AP ssid]\r\n"
                      "psk [AP password]\r\n"
                      "reboot\r\n"
-                     "serial quiet|copy\r\n");
+                     "serial quiet|copy\r\n"
+                     "unknown 0|1\r\n");
     return;
   }
   else if (!strncmp(command, "ssid", 4)) {
@@ -144,6 +149,11 @@ void processCommand(char* command) {
   }
   else if (!strncmp(command, "serial ", 7)) {
     serialMode = command[7];
+    SaveSettings();
+    strcpy(lineData, "OK\r\n");
+  }
+  else if (!strncmp(command, "unknown ", 8)) {
+    unknown = command[8]-'0';
     SaveSettings();
     strcpy(lineData, "OK\r\n");
   }
@@ -194,7 +204,82 @@ char* encoding (decode_results *results)
         return "AIWA_RC_T501";
     case PANASONIC:    
         return "PANASONIC";
+    case SYMA_R3:
+        return "SYMA_R3";
+    case SYMA_R5:
+        return "SYMA_R5";
+    case FASTLANE:
+        return "FASTLANE";
+    case USERIES:
+        return "USERIES";
   }
+}
+
+void toLineData(decode_results* r) {
+    switch(r->decode_type) {
+      case SYMA_R3:
+        sprintf(lineData, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u", 
+          encoding(r), millis(), (int)r->bits, 
+          (unsigned long)r->value, 
+          (unsigned int)r->helicopter.symaR3.Throttle,
+          (unsigned int)r->helicopter.symaR3.Channel,
+          (unsigned int)r->helicopter.symaR3.Pitch,
+          (unsigned int)r->helicopter.symaR3.Yaw );    
+        break;
+      case SYMA_R5:
+        sprintf(lineData, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u", 
+          encoding(r), millis(), (int)r->bits, 
+          (unsigned long)r->value, 
+          (unsigned int)r->helicopter.symaR5.Throttle,
+          (unsigned int)r->helicopter.symaR5.Channel,
+          (unsigned int)r->helicopter.symaR5.Pitch,
+          (unsigned int)r->helicopter.symaR5.Yaw,
+          (unsigned int)r->helicopter.symaR5.Trim
+          );    
+        break;
+      case USERIES:
+        sprintf(lineData, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u,turbo=%u,lbutton=%u,rbutton=%u", 
+          encoding(r), millis(), (int)r->bits, 
+          (unsigned long)r->value, 
+          (unsigned int)r->helicopter.uSeries.Throttle,
+          (unsigned int)r->helicopter.uSeries.Channel,
+          (unsigned int)r->helicopter.uSeries.Pitch,
+          (unsigned int)r->helicopter.uSeries.Yaw,
+          (unsigned int)r->helicopter.uSeries.Trim,
+          (unsigned int)r->helicopter.uSeries.Turbo,
+          (unsigned int)r->helicopter.uSeries.Lbutton,
+          (unsigned int)r->helicopter.uSeries.Rbutton
+          );    
+        break;
+      case FASTLANE:
+        sprintf(lineData, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u,trimdir=%u,fire=%u", 
+          encoding(r), millis(), (int)r->bits, 
+          (unsigned long)r->value, 
+          (unsigned int)r->helicopter.fastlane.Throttle,
+          (unsigned int)r->helicopter.fastlane.Channel,
+          (unsigned int)r->helicopter.fastlane.Pitch,
+          (unsigned int)r->helicopter.fastlane.Yaw,
+          (unsigned int)r->helicopter.fastlane.Trim,
+          (unsigned int)r->helicopter.fastlane.Trim_dir,
+          (unsigned int)r->helicopter.fastlane.Fire
+          );    
+        break;
+      case PANASONIC:
+        sprintf(lineData, "%s,%ld,%d,%lx,address=%u", 
+          encoding(r), millis(), (int)r->bits, 
+          (unsigned long)r->value, (unsigned int)r->panasonicAddress);    
+        break;
+      case MAGIQUEST:
+        sprintf(lineData, "%s,%ld,%d,%lx,magnitude=%u", 
+          encoding(r), millis(), (int)r->bits, 
+          (unsigned long)r->value, (unsigned int)r->magiquestMagnitude);    
+        break;
+      default:
+        sprintf(lineData, "%s,%ld,%d,%lx", 
+          encoding(r), millis(), (int)r->bits, 
+          (unsigned long)r->value);    
+        break;
+    }
 }
 
 void loop()
@@ -219,15 +304,8 @@ void loop()
 
   if (irrecv.decode(&result)) {
       irrecv.resume();  
-      if (result.decode_type != UNKNOWN) {  
-          unsigned int aux = 0;
-          if (result.decode_type == PANASONIC)
-            aux = result.panasonicAddress;
-          else if (result.decode_type == MAGIQUEST)
-            aux = result.magiquestMagnitude;
-          sprintf(lineData, "%s,%ld,%d,%lx,%x", 
-            encoding(&result), millis(), (int)result.bits, 
-            (unsigned long)result.value, aux);
+      if (result.decode_type != UNKNOWN || unknown) {  
+          toLineData(&result);
 
           if (serialMode == COPY)
             Serial.println(lineData);
