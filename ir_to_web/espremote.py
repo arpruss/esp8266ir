@@ -4,7 +4,6 @@ import socket
 import StringIO
 import select
 
-
 class ESPRemoteEvent(object):
     def __init__(self, line):
         try:
@@ -93,7 +92,12 @@ class ESPRemote(object):
         self.sock.close()
         
 if __name__=="__main__":
-    r = ESPRemote()
+    from sys import argv
+    
+    if len(argv)>=2:
+        r = ESPRemote(argv[1])
+    else:
+        r = ESPRemote()
     print "Thingy on "+str(r.address)+":"+str(r.port)
     for e in r.getevents():
         print str(e)
