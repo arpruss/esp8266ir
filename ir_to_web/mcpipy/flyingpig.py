@@ -1,12 +1,18 @@
 from mc import *
 from espremote import ESPRemote
 from time import sleep,time
+from sys import argv
 
 mc = Minecraft()
 
-playerPos = mc.player.getPos()
-x,y,z = playerPos.x,playerPos.y,playerPos.z+1
-pig = mc.spawnEntity(PIG, x,y,z, '{NoAI:1}')
+if len(argv)>1 and argv[1] == 'player':
+    x,y,z = mc.player.getPos()
+    pig = mc.getPlayerId()
+else:
+    playerPos = mc.player.getPos()
+    x,y,z = playerPos.x,playerPos.y,playerPos.z+1
+    pig = mc.spawnEntity(PIG if len(argv)<=1 else argv[1], x,y,z, '{NoAI:1}')
+
 yaw = mc.entity.getRotation(pig)
 remote = ESPRemote()
 
