@@ -16,8 +16,8 @@ for event in ESPRemote().getevents():
     repeat = event.time < lastTime + 500
     
     data = event.data & 0xFFF
-    
-    if data == 0x42c:
+
+    if data == 0x42c or event.format == "MAGIQUEST":
         if not repeat:
             if title.startswith("Acorn"):
                 win32api.SetCursorPos((500,500))
