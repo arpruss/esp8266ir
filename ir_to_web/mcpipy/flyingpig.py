@@ -23,21 +23,21 @@ dyaw = 0
 lastTime = time()
 lastSignal = -1000
 while True:
+    print y,newY
     if time() - lastSignal > 1:
         dyaw = 0
         pitch = 0
-        newY = y
+        newY = 0
+    dt = time()-lastTime
+    yaw -= dyaw * dt * 2.5
+    x += dt * .1 * pitch * -sin(radians(yaw))
+    z += dt * .1 * pitch * cos(radians(yaw))
+    if newY-y > 4 * dt:
+        y += 4 * dt
+    elif y-newY > 4 * dt:
+        y -= 4 * dt
     else:
-        dt = time()-lastTime
-        yaw -= dyaw * dt * 2.5
-        x += dt * .1 * pitch * -sin(radians(yaw))
-        z += dt * .1 * pitch * cos(radians(yaw))
-        if newY-y > 4 * dt:
-            y += 4 * dt
-        elif y-newY > 4 * dt:
-            y -= 4 * dt
-        else:
-            y = newY
+        y = newY
     lastTime = time()
     mc.entity.setRotation(pig, yaw)
     mc.entity.setPitch(pig, pitch)
@@ -52,7 +52,7 @@ while True:
                 throttle = extras.get('throttle',0)
                 pitch = 63 - extras.get('pitch', 63)
                 dyaw = extras.get('yaw', 63) + extras.get('trim', 63) - 2*63
-                newY = throttle * 0.4
+                newY = throttle * 0.3
                 lastSignal = time()
     else:
         sleep(0.2)
