@@ -35,9 +35,67 @@ class ESPRemoteEvent(object):
                 self.extras[label] = ESPRemoteEvent.number(stringValue)
             except:
                 pass
+        if self.format.startswith("HELI_"):
+            self.setupHeli()
         self.raw = None        
         if len(parts)>1 and parts[1][0] == "[" and parts[1][-1] == "]":
             self.raw = map(int, parts[1][1:-2].split(","))
+            
+    @staticmethod
+    def trim(x):
+        if x <= -1.: return -1.
+        elif x >= 1.: return 1.
+        else: return x
+            
+    # pitch: positive = nose up, heli backward  
+    # yaw/trim: positive = right    
+    def setupHeli(self):
+        if self.format == "HELI_SYMA_R3" or self.format == "HELI_SYMA_R5":
+            self.extras['throttle'] = ESPRemoteEvent.trim(self.extras.get('throttle', 0) / 127.)
+            self.extras['pitch'] = ESPRemoteEvent.trim((self.extras.get('pitch', 0) - 63.)/63.)
+            self.extras['yaw'] = ESPRemoteEvent.trim((63. - self.extras.get('yaw',0))/63.)
+            if self.format == "HELI_SYMA_R5":
+                self.extras['trim'] = ESPRemoteEvent.trim((63. - self.extras.get('trim',0))/63.)
+            else:
+                self.extras['trim'] = 0
+        elif self.format == "HELI_FAKE_SYMA1":
+            self.extras['throttle'] = ESPRemoteEvent.trim(self.extras.get('throttle', 0) / 127.)
+            self.extras['pitch'] = ESPRemoteEvent.trim(self.extras.get('pitch',0) / 7.)
+            if self.extras.get('pitchdir', 0): 
+                self.extras['pitch'] = -self.extras['pitch']
+            self.extras['yaw'] = ESPRemoteEvent.trim(self.extras.get('yaw',0) / 15.)
+            if self.extras.get('yawdir', 0): 
+                self.extras['yaw'] = -self.extras['yaw']
+            self.extras['trim'] = ESPRemoteEvent.trim(self.extras.get('trim',0) / 15.)
+            if self.extras.get('trimdir', 0): 
+                self.extras['trim'] = -self.extras['trim']
+            try:
+                del self.extras['pitchdir']
+            except:
+                pass
+            try:
+                del self.extras['trimdir']
+            except:
+                pass
+            try:
+                del self.extras['yawdir']
+            except:
+                pass
+        elif self.format == "HELI_FASTLANE":
+            self.extras['throttle'] = ESPRemoteEvent.trim(self.extras.get('throttle', 0) / 63.)
+            self.extras['pitch'] = ESPRemoteEvent.trim((8. - self.extras.get('pitch', 0)) / 7.)
+            self.extras['yaw'] = ESPRemoteEvent.trim((8. - self.extras.get('yaw',0))/7.)
+            self.extras['trim'] = ESPRemoteEvent.trim((8. - self.extras.get('trim',0))/7.)
+        elif self.format == 'HELI_USERIES':
+            self.extras['throttle'] = ESPRemoteEvent.trim(self.extras.get('throttle', 0) / 127.)
+            self.extras['pitch'] = ESPRemoteEvent.trim((self.extras.get('pitch', 0) - 31.) / 31.)
+            self.extras['yaw'] = ESPRemoteEvent.trim((15. - self.extras.get('yaw',0))/15.)
+            self.extras['trim'] = ESPRemoteEvent.trim((31. - self.extras.get('trim',0))/31.)
+        else: # unknown
+            self.extras['throttle'] = 0
+            self.extras['pitch'] = 0
+            self.extras['yaw'] = 0
+            self.extras['trim'] = 0
 
     def __str__(self):
         out = "format=%s time=%d bits=%d data=%x" % (self.format, self.time, self.bits, self.data)

@@ -279,10 +279,9 @@ void tooutLine(decode_results* r) {
           );    
         break;
       case FAKE_SYMA1:
-        sprintf(outLine, "%s,%ld,%d,%lx,dword=%lx,channel=%u,throttle=%u,pitch=%u,pitchdir=%u,yaw=%u,yawdir=%u,trim=%u,trimdir=%u", 
+        sprintf(outLine, "%s,%ld,%d,%lx,channel=%u,throttle=%u,pitch=%u,pitchdir=%u,yaw=%u,yawdir=%u,trim=%u,trimdir=%u", 
           encoding(r), millis(), (int)r->bits, 
           (unsigned long)r->value, 
-          (unsigned long)r->helicopter.dword,
           (unsigned int)r->helicopter.fakeSyma1.Channel,
           (unsigned int)r->helicopter.fakeSyma1.Throttle,
           (unsigned int)r->helicopter.fakeSyma1.Pitch,

@@ -23,15 +23,14 @@ dyaw = 0
 lastTime = time()
 lastSignal = -1000
 while True:
-    print y,newY
     if time() - lastSignal > 1:
         dyaw = 0
         pitch = 0
         newY = 0
     dt = time()-lastTime
-    yaw -= dyaw * dt * 2.5
-    x += dt * .1 * pitch * -sin(radians(yaw))
-    z += dt * .1 * pitch * cos(radians(yaw))
+    yaw += dyaw * dt * 150
+    x += dt * 5 * pitch * sin(radians(yaw))
+    z += dt * 5 * pitch * -cos(radians(yaw))
     if newY-y > 4 * dt:
         y += 4 * dt
     elif y-newY > 4 * dt:
@@ -40,19 +39,18 @@ while True:
         y = newY
     lastTime = time()
     mc.entity.setRotation(pig, yaw)
-    mc.entity.setPitch(pig, pitch)
+    mc.entity.setPitch(pig, -30*pitch)
     mc.entity.setPos(pig, x,y,z)
     if remote.available():
         pitch = 0
         dyaw = 0
         event = remote.getevent()
-        if event.format.startswith("SYMA"):
+        if event.format.startswith("HELI_"):
             extras = event.extras
             if extras:            
-                throttle = extras.get('throttle',0)
-                pitch = 63 - extras.get('pitch', 63)
-                dyaw = extras.get('yaw', 63) + extras.get('trim', 63) - 2*63
-                newY = throttle * 0.3
+                pitch = extras.get('pitch', 0)
+                dyaw = extras.get('yaw', 0) + extras.get('trim', 0)
+                newY = extras.get('throttle', 0) * 40
                 lastSignal = time()
     else:
         sleep(0.2)
