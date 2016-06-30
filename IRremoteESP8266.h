@@ -55,6 +55,7 @@ enum decode_type_t {
   SYMA_R5 = 17,
   USERIES = 18,
   FASTLANE = 19,
+  FAKE_SYMA1 = 20,
   UNKNOWN = -1
 };
 
@@ -94,15 +95,28 @@ union helicopter {
   } symaR5;
   struct
   {
-     uint8_t cksum     : 3;    // 0..2
-     uint8_t Rbutton   : 1;    // 3      0-normally off, 1-depressed
-     uint8_t Lbutton   : 1;    // 4      0-normally off, 1-depressed
-     uint8_t Turbo     : 1;    // 5      1-off, 0-on
-     uint8_t Channel   : 2;    // 6,7    A=1, B=2, C=0
-     uint8_t Trim      : 6;    // 8..13  (left)63 - 31(center) - 0(right)
-     uint8_t Yaw       : 5;    // 14..18 31(left) - 15(center) - 0(right)
-     uint8_t Pitch     : 6;    // 19..24 0(foward) - 31(center) - 63(back)
-     uint8_t Throttle  : 7;    // 25..31 0 - 127
+     uint32_t Spacer1  : 5;   // unknown
+     uint32_t Trim     : 4;   // 0-15
+     uint32_t Trim_dir : 1;   // 1 = left, 0 = right
+     uint32_t Yaw_dir  : 1;   // 1 = left, 0 = right
+     uint32_t Yaw      : 4;   // 0-15
+     uint32_t Throttle : 7;   // 0-127
+     uint32_t Pitch_dir : 1;  // 0 = down, 1 = up
+     uint32_t Pitch    : 3;   // 0-7
+     uint32_t Spacer2  : 2;   // unknown, always 00?
+     uint32_t Channel  : 2;   // 1-3
+  } fakeSyma1;
+  struct
+  {
+     uint32_t cksum     : 3;    // 0..2
+     uint32_t Rbutton   : 1;    // 3      0-normally off, 1-depressed
+     uint32_t Lbutton   : 1;    // 4      0-normally off, 1-depressed
+     uint32_t Turbo     : 1;    // 5      1-off, 0-on
+     uint32_t Channel   : 2;    // 6,7    A=1, B=2, C=0
+     uint32_t Trim      : 6;    // 8..13  (left)63 - 31(center) - 0(right)
+     uint32_t Yaw       : 5;    // 14..18 31(left) - 15(center) - 0(right)
+     uint32_t Pitch     : 6;    // 19..24 0(foward) - 31(center) - 63(back)
+     uint32_t Throttle  : 7;    // 25..31 0 - 127
   } uSeries;
   struct
   {
@@ -181,6 +195,7 @@ public:
   long decodeSyma(decode_results *results);
   long decodeFastLane(decode_results *results);
   long decodeUseries(decode_results *results);
+  long decodeFakeSyma1(decode_results *results);
   long decodeWhynter(decode_results *results);
   long decodeHash(decode_results *results);
   int compare(unsigned int oldval, unsigned int newval);

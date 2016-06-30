@@ -644,6 +644,12 @@ int IRrecv::decode(decode_results *results) {
     if (decodeFastLane(results)) {
         return DECODED;
     }
+#ifdef DEBUG
+    Serial.println("Attempting FakeSyma1 decode");
+#endif
+    if (decodeFakeSyma1(results)) {
+        return DECODED;
+    }
 
   // decodeHash returns a hash on any input.
   // Thus, it needs to be last in the list.
@@ -1366,6 +1372,39 @@ long IRrecv::decodeSyma(decode_results *results) {
       results->decode_type = SYMA_R3;
     }
     results->bits = syma_len;
+    results->helicopter.dword = data;
+    return DECODED;
+}
+
+long IRrecv::decodeFakeSyma1(decode_results *results) {
+    uint32_t data = 0;
+    int16_t offset = 0;
+    
+    if (irparams.rawlen != 2 * FAKE_SYMA1_BITS) {
+      return ERR;
+    }
+    
+    if (!MATCH_SPACE(results->rawbuf[offset], FAKE_SYMA1_HDR_SPACE)) {
+      return ERR;
+    }
+    offset++;
+
+    for (uint8_t i = 0; i < FAKE_SYMA1_BITS; i++) {
+        if (MATCH_MARK(results->rawbuf[offset], FAKE_SYMA1_ONE_MARK)) {
+          data = (data << 1) | 1;
+        } else if (MATCH_MARK(results->rawbuf[offset], FAKE_SYMA1_ZERO_MARK)) {
+          data <<= 1;
+        } else {
+          return ERR;
+        }
+        offset++;
+        if (i+1 < FAKE_SYMA1_BITS && !MATCH_SPACE(results->rawbuf[offset++], FAKE_SYMA1_SPACE)) {
+          return ERR;
+        }
+    }
+    results->value = data;
+    results->decode_type = FAKE_SYMA1;
+    results->bits = FAKE_SYMA1_BITS;
     results->helicopter.dword = data;
     return DECODED;
 }

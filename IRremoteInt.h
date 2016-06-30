@@ -123,6 +123,11 @@
 #define SYMA_ONE_SPACE 687
 #define SYMA_ZERO_SPACE 300
 
+#define FAKE_SYMA1_HDR_SPACE  1000
+#define FAKE_SYMA1_SPACE       300
+#define FAKE_SYMA1_ONE_MARK    875
+#define FAKE_SYMA1_ZERO_MARK   475
+
 #define USERIES_UPDATE_PERIOD_CH_A 150 // 1
 #define USERIES_UPDATE_PERIOD_CH_B 110 // 2
 #define USERIES_UPDATE_PERIOD_CH_C 190 // 0
@@ -219,5 +224,6 @@ extern volatile irparams_t irparams;
 #define SYMA_R3_BITS 24
 #define USERIES_BITS 32
 #define FASTLANE_BITS 23
+#define FAKE_SYMA1_BITS 30
 
 #endif
