@@ -51,6 +51,10 @@ enum decode_type_t {
   WHYNTER = 13,
   AIWA_RC_T501 = 14,
   MAGIQUEST = 15,
+  SYMA_R3 = 16,
+  SYMA_R5 = 17,
+  USERIES = 18,
+  FASTLANE = 19,
   UNKNOWN = -1
 };
 
@@ -68,6 +72,52 @@ union magiquest {
   } cmd ;
 } ;
 
+union helicopter {
+  uint32_t dword;
+  struct
+  {
+     uint8_t Throttle  : 7;    //  0..6   0 - 127
+     uint8_t Channel   : 1;    //  7      A=0, B=1
+     uint8_t Pitch     : 7;    //  8..14  0(forward) - 63(center) 127(back)
+     uint8_t Pspacer   : 1;    // 15      na
+     uint8_t Yaw       : 7;    // 16..22  127(left) - 63(center) - 0(right)
+  } symaR3;
+  struct
+  {
+     uint8_t Trim      : 7;    //  0..6  127(left) - 63(center) - 0(right)
+     uint8_t Tspacer   : 1;    //  7     na
+     uint8_t Throttle  : 7;    //  8..14 0 - 127
+     uint8_t Channel   : 1;    // 15     A=0, B=1
+     uint8_t Pitch     : 7;    // 16..22 0(forward) - 63(center) 127(back)
+     uint8_t Pspacer   : 1;    // 23     na
+     uint8_t Yaw       : 7;    // 24..30 127(left) - 63(center) - 0(right)
+  } symaR5;
+  struct
+  {
+     uint8_t cksum     : 3;    // 0..2
+     uint8_t Rbutton   : 1;    // 3      0-normally off, 1-depressed
+     uint8_t Lbutton   : 1;    // 4      0-normally off, 1-depressed
+     uint8_t Turbo     : 1;    // 5      1-off, 0-on
+     uint8_t Channel   : 2;    // 6,7    A=1, B=2, C=0
+     uint8_t Trim      : 6;    // 8..13  (left)63 - 31(center) - 0(right)
+     uint8_t Yaw       : 5;    // 14..18 31(left) - 15(center) - 0(right)
+     uint8_t Pitch     : 6;    // 19..24 0(foward) - 31(center) - 63(back)
+     uint8_t Throttle  : 7;    // 25..31 0 - 127
+  } uSeries;
+  struct
+  {
+     uint8_t Trim      : 4;    //  0..3  15(left) -  8(center) - 0(right)
+     uint8_t Trim_dir  : 1;    //  4     0= , 1=
+     uint8_t Yaw_dir   : 1;    //  5
+     uint8_t Fire      : 1;    //  6
+     uint8_t Yaw       : 4;    //  7..10 15(left) - 8(center) - 0(right)
+     uint8_t Pitch     : 4;    // 11..14 1(back) - 8(center) 15(forward)
+     uint8_t Throttle  : 6;    // 15..20 0 - 63
+     uint8_t Channel   : 2;    // 21..22 ?A=0, B=1
+  } fastlane;
+};
+
+
 // Results returned from the decoder
 class decode_results {
 public:
@@ -77,7 +127,9 @@ public:
     unsigned int sharpAddress;
   };
   uint16_t magiquestMagnitude;
+  union helicopter helicopter;
   uint32_t value; // Decoded value
+  uint8_t parity;
   int bits; // Number of bits in decoded value
   volatile unsigned int *rawbuf; // Raw intervals in .5 us ticks
   int rawlen; // Number of records in rawbuf.
@@ -126,6 +178,9 @@ public:
   long decodeJVC(decode_results *results);
   long decodeSAMSUNG(decode_results *results);
   long decodeMagiQuest(decode_results *results);
+  long decodeSyma(decode_results *results);
+  long decodeFastLane(decode_results *results);
+  long decodeUseries(decode_results *results);
   long decodeWhynter(decode_results *results);
   long decodeHash(decode_results *results);
   int compare(unsigned int oldval, unsigned int newval);

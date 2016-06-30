@@ -10,7 +10,7 @@
  * Modified  by Mitra Ardron <mitra@mitra.biz> 
  * Added Sanyo and Mitsubishi controllers
  * Modified Sony to spot the repeat codes that some Sony's send
- * Magiquest code by Michael Flaga, https://github.com/markszabo/IRremoteESP8266
+ * Magiquest and helicopter code by Michael Flaga, https://github.com/markszabo/IRremoteESP8266
  * merged by Alexander Pruss <arpruss@gmail.com>
  *
  * Interrupt code based on NECIRrcv by Joe Knapp
@@ -536,36 +536,33 @@ void IRrecv::resume() {
   irparams.rawlen = 0;
 }
 
-int fixbits(decode_results *results) {
-    results->value = ((((uint32_t)1 << results->bits)-1) & results->value);
-}
-
 // Decodes the received IR message
 // Returns 0 if no data ready, 1 if data ready.
 // Results of decoding are stored in results
 int IRrecv::decode(decode_results *results) {
   results->rawbuf = irparams.rawbuf;
   results->rawlen = irparams.rawlen;
+  
   if (irparams.rcvstate != STATE_STOP) {
     return ERR;
   }
+#ifdef DEBUG
+  Serial.println("Attempting MAGIQUEST decode");
+#endif
   if (decodeMagiQuest(results)) {
-    fixbits(results);
     return DECODED;
   }
 #ifdef DEBUG
   Serial.println("Attempting NEC decode");
 #endif
   if (decodeNEC(results)) {
-    fixbits(results);
-    return DECODED;
+        return DECODED;
   }
 
 #ifdef DEBUG
   Serial.println("Attempting Sony decode");
 #endif
   if (decodeSony(results)) {
-    fixbits(results);
     return DECODED;
   }
   /*
@@ -579,63 +576,79 @@ int IRrecv::decode(decode_results *results) {
   Serial.println("Attempting Mitsubishi decode");
 #endif
   if (decodeMitsubishi(results)) {
-    fixbits(results);
     return DECODED;
   }
 #ifdef DEBUG
   Serial.println("Attempting RC5 decode");
 #endif  
   if (decodeRC5(results)) {
-    fixbits(results);
     return DECODED;
   }
 #ifdef DEBUG
   Serial.println("Attempting RC6 decode");
 #endif 
   if (decodeRC6(results)) {
-    fixbits(results);
     return DECODED;
   }
 #ifdef DEBUG
     Serial.println("Attempting Panasonic decode");
 #endif 
     if (decodePanasonic(results)) {
-        fixbits(results);
         return DECODED;
     }
 #ifdef DEBUG
     Serial.println("Attempting LG decode");
 #endif 
     if (decodeLG(results)) {
-        fixbits(results);
         return DECODED;
     }
 #ifdef DEBUG
     Serial.println("Attempting JVC decode");
 #endif 
     if (decodeJVC(results)) {
-        fixbits(results);
         return DECODED;
     }
 #ifdef DEBUG
   Serial.println("Attempting SAMSUNG decode");
 #endif
   if (decodeSAMSUNG(results)) {
-    fixbits(results);
     return DECODED;
   }
 #ifdef DEBUG
   Serial.println("Attempting Whynter decode");
 #endif
   if (decodeWhynter(results)) {
-    fixbits(results);
     return DECODED;
   }
+#ifdef DEBUG
+  Serial.println("Attempting MAGIQUEST decode");
+#endif
+  if (decodeMagiQuest(results)) {
+    return DECODED;
+  }
+#ifdef DEBUG
+    Serial.println("Attempting Syma decode");
+#endif
+    if (decodeSyma(results)) {
+        return DECODED;
+    }
+#ifdef DEBUG
+    Serial.println("Attempting Useries decode");
+#endif
+    if (decodeUseries(results)) {
+        return DECODED;
+    }
+#ifdef DEBUG
+    Serial.println("Attempting FastLane decode");
+#endif
+    if (decodeFastLane(results)) {
+        return DECODED;
+    }
+
   // decodeHash returns a hash on any input.
   // Thus, it needs to be last in the list.
   // If you add any decodes, add them before this.
   if (decodeHash(results)) {
-    fixbits(results);
     return DECODED;
   }
   // Throw away and start over
@@ -1308,6 +1321,122 @@ long IRrecv::decodeMagiQuest(decode_results *results) {
   uint8_t* p = (uint8_t*)&(data.cmd.wand_id);
   results->decode_type = MAGIQUEST;
   return DECODED;
+}
+
+long IRrecv::decodeSyma(decode_results *results) {
+    uint32_t data = 0;
+    int16_t offset = 1;
+    uint8_t syma_len;
+
+    if (irparams.rawlen == 2 * (SYMA_R5_BITS + 2)) {
+      syma_len = SYMA_R5_BITS;
+    } 
+    else if (irparams.rawlen == 2 * (SYMA_R3_BITS + 2)) {
+      syma_len = SYMA_R3_BITS;
+    } 
+    else {
+      return ERR;
+    }
+    if (!MATCH_MARK(results->rawbuf[offset], SYMA_HDR_MARK)) {
+      return ERR;
+    }
+    offset++;
+    if (!MATCH_MARK(results->rawbuf[offset], SYMA_HDR_SPACE)) {
+      return ERR;
+    }
+    offset++;
+    for (uint8_t i = 0; i < syma_len; i++) {
+        if (!MATCH_MARK(results->rawbuf[offset++], SYMA_BIT_MARK)) {
+          return ERR;
+        }
+        if (MATCH_SPACE(results->rawbuf[offset], SYMA_ONE_SPACE)) {
+          data = (data << 1) | 1;
+        } else if (MATCH_SPACE(results->rawbuf[offset], SYMA_ZERO_SPACE)) {
+          data <<= 1;
+        } else {
+          return ERR;
+        }
+        offset++;
+    }
+    results->value = data;
+    if (syma_len == SYMA_R5_BITS) {
+      results->decode_type = SYMA_R5;
+    } 
+    else if (syma_len == SYMA_R3_BITS) {
+      results->decode_type = SYMA_R3;
+    }
+    results->bits = syma_len;
+    results->helicopter.dword = data;
+    return DECODED;
+}
+
+uint8_t UseriesChecksum(uint32_t val)
+{
+  const uint8_t map[8] = { 0, 1, 3, 2, 6, 7, 5, 4 };
+  uint32_t x = val & 0xFFFFFFF8;
+  uint32_t p = x;
+  while ((x >>= 7) != 0) {
+    p ^= x;
+  }
+  p = (p ^ (p >> 1) ^ (p >> 2) ^ (p >> 4)) & 7;
+  return(map[p]);
+}
+long IRrecv::decodeUseries(decode_results *results) {
+    uint32_t data = 0;
+    int16_t offset = 1;
+    if (irparams.rawlen < 2 * (USERIES_BITS + 2)) {
+      return ERR;
+    }
+    if (!MATCH_MARK(results->rawbuf[offset], USERIES_HDR_MARK)) {
+        return ERR;
+    }
+    offset++;
+    for (int16_t i = 0; i < USERIES_BITS; i++) {
+        if (!MATCH_SPACE(results->rawbuf[offset++], USERIES_BIT_SPACE)) {
+            return ERR;
+        }
+        if (MATCH_MARK(results->rawbuf[offset],USERIES_ONE_MARK)) {
+            data <<= 1;
+        } else if (MATCH_MARK(results->rawbuf[offset],USERIES_ZERO_MARK)) {
+            data = (data << 1) | 1;
+        } else {
+            return ERR;
+        }
+        offset++;
+    }
+    results->value = data;
+    results->helicopter.dword = data;
+    results->parity = UseriesChecksum(data);
+    results->decode_type = USERIES;
+    results->bits = USERIES_BITS;
+    return DECODED;
+}
+long IRrecv::decodeFastLane(decode_results *results) {
+    helicopter data;
+    data.dword = 0;
+    int16_t offset = 1;
+    if (irparams.rawlen < (FASTLANE_BITS + 2)) {
+      return ERR;
+    }
+    if (!MATCH_MARK(results->rawbuf[offset], FASTLANE_HDR_MARK)) {
+        return ERR;
+    }
+    offset++;
+    for (int16_t i = 0; i < FASTLANE_BITS; i++) {
+        if (MATCH_MARK(results->rawbuf[offset],FASTLANE_ZERO)) {
+            data.dword <<= 1;
+        } else if (MATCH_MARK(results->rawbuf[offset],FASTLANE_ONE)) {
+            data.dword = (data.dword << 1) | 1;
+        } else {
+            return ERR;
+        }
+        offset++;
+    }
+    results->value = data.dword;
+    results->helicopter.dword = data.dword;
+    results->decode_type = FASTLANE;
+    results->bits = FASTLANE_BITS;
+    return DECODED;
 }
 
 /* -----------------------------------------------------------------------
