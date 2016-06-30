@@ -216,13 +216,15 @@ char* encoding (decode_results *results)
     case PANASONIC:    
         return "PANASONIC";
     case SYMA_R3:
-        return "SYMA_R3";
+        return "HELI_SYMA_R3";
     case SYMA_R5:
-        return "SYMA_R5";
+        return "HELI_SYMA_R5";
     case FASTLANE:
-        return "FASTLANE";
+        return "HELI_FASTLANE";
+    case FAKE_SYMA1:
+        return "HELI_FAKE_SYMA1";
     case USERIES:
-        return "USERIES";
+        return "HELI_USERIES";
   }
 }
 
@@ -236,24 +238,25 @@ void tooutLine(decode_results* r) {
           (unsigned int)r->helicopter.symaR3.Channel,
           (unsigned int)r->helicopter.symaR3.Pitch,
           (unsigned int)r->helicopter.symaR3.Yaw );    
+          
         break;
       case SYMA_R5:
-        sprintf(outLine, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u", 
+        sprintf(outLine, "%s,%ld,%d,%lx,channel=%u,throttle=%u,pitch=%u,yaw=%u,trim=%u", 
           encoding(r), millis(), (int)r->bits, 
           (unsigned long)r->value, 
-          (unsigned int)r->helicopter.symaR5.Throttle,
           (unsigned int)r->helicopter.symaR5.Channel,
+          (unsigned int)r->helicopter.symaR5.Throttle,
           (unsigned int)r->helicopter.symaR5.Pitch,
           (unsigned int)r->helicopter.symaR5.Yaw,
           (unsigned int)r->helicopter.symaR5.Trim
           );    
         break;
       case USERIES:
-        sprintf(outLine, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u,turbo=%u,lbutton=%u,rbutton=%u", 
+        sprintf(outLine, "%s,%ld,%d,%lx,channel=%u,throttle=%u,pitch=%u,yaw=%u,trim=%u,turbo=%u,lbutton=%u,rbutton=%u", 
           encoding(r), millis(), (int)r->bits, 
           (unsigned long)r->value, 
-          (unsigned int)r->helicopter.uSeries.Throttle,
           (unsigned int)r->helicopter.uSeries.Channel,
+          (unsigned int)r->helicopter.uSeries.Throttle,
           (unsigned int)r->helicopter.uSeries.Pitch,
           (unsigned int)r->helicopter.uSeries.Yaw,
           (unsigned int)r->helicopter.uSeries.Trim,
@@ -263,16 +266,31 @@ void tooutLine(decode_results* r) {
           );    
         break;
       case FASTLANE:
-        sprintf(outLine, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u,trimdir=%u,fire=%u", 
+        sprintf(outLine, "%s,%ld,%d,%lx,channel=%u,throttle=%u,pitch=%u,yaw=%u,trim=%u,trimdir=%u,fire=%u", 
           encoding(r), millis(), (int)r->bits, 
           (unsigned long)r->value, 
-          (unsigned int)r->helicopter.fastlane.Throttle,
           (unsigned int)r->helicopter.fastlane.Channel,
+          (unsigned int)r->helicopter.fastlane.Throttle,
           (unsigned int)r->helicopter.fastlane.Pitch,
           (unsigned int)r->helicopter.fastlane.Yaw,
           (unsigned int)r->helicopter.fastlane.Trim,
           (unsigned int)r->helicopter.fastlane.Trim_dir,
           (unsigned int)r->helicopter.fastlane.Fire
+          );    
+        break;
+      case FAKE_SYMA1:
+        sprintf(outLine, "%s,%ld,%d,%lx,dword=%lx,channel=%u,throttle=%u,pitch=%u,pitchdir=%u,yaw=%u,yawdir=%u,trim=%u,trimdir=%u", 
+          encoding(r), millis(), (int)r->bits, 
+          (unsigned long)r->value, 
+          (unsigned long)r->helicopter.dword,
+          (unsigned int)r->helicopter.fakeSyma1.Channel,
+          (unsigned int)r->helicopter.fakeSyma1.Throttle,
+          (unsigned int)r->helicopter.fakeSyma1.Pitch,
+          (unsigned int)r->helicopter.fakeSyma1.Pitch_dir,
+          (unsigned int)r->helicopter.fakeSyma1.Yaw,
+          (unsigned int)r->helicopter.fakeSyma1.Yaw_dir,
+          (unsigned int)r->helicopter.fakeSyma1.Trim,
+          (unsigned int)r->helicopter.fakeSyma1.Trim_dir
           );    
         break;
       case PANASONIC:
@@ -299,9 +317,9 @@ void tooutLine(decode_results* r) {
     
     if (rawMode) {
         char *p = outLine + strlen(outLine);
-        sprintf(p, " [%u,",(unsigned int)(r->rawlen-1));
-        p += strlen(p);
-        for (int i=1; i<r->rawlen;i++) {
+        strcat(p, " [");
+        p += 2;
+        for (int i=0; i<r->rawlen;i++) {
           sprintf(p, "%lu", (unsigned long)(r->rawbuf[i] * USECPERTICK));
           if (i+1<r->rawlen)
             strcat(p, ",");

@@ -37,9 +37,7 @@ class ESPRemoteEvent(object):
                 pass
         self.raw = None        
         if len(parts)>1 and parts[1][0] == "[" and parts[1][-1] == "]":
-            r = map(int,  parts[1][1:-2].split(","))
-            if len(r) == r[0]+1:
-                self.raw = r[1:]
+            self.raw = map(int, parts[1][1:-2].split(","))
 
     def __str__(self):
         out = "format=%s time=%d bits=%d data=%x" % (self.format, self.time, self.bits, self.data)
@@ -48,7 +46,7 @@ class ESPRemoteEvent(object):
         if self.raw:
             out += " raw:"
             for i,r in enumerate(self.raw):
-                out += " -" if i%2 else " +"
+                out += " +" if i%2 else " -"
                 out += str(r)
         return out
         
