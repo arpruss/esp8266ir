@@ -27,10 +27,11 @@ char psk[PSK_LENGTH] = "yyyy";
 #define COPY   ((uint8_t)'c')
 
 #define LINE_LENGTH 256
+#define OUT_LINE_LENGTH 2000
 
 char commandLine[LINE_LENGTH];
 int commandLineLength = 0;
-char lineData[LINE_LENGTH];
+char outLine[OUT_LINE_LENGTH];
 
 WiFiServer server(PORT);
 WiFiClient serverClients[MAX_CLIENTS];
@@ -38,6 +39,7 @@ int latestClient = -1;
 static int RECV_PIN = 0; // IR decoder pin
 static uint8_t serialMode = QUIET;
 static uint8_t unknown = 0;
+static uint8_t rawMode = 0;
 
 static IRrecv irrecv(RECV_PIN);
 
@@ -45,6 +47,7 @@ static IRrecv irrecv(RECV_PIN);
 #define PSK_OFFSET (SSID_OFFSET+SSID_LENGTH)
 #define SERIAL_MODE_OFFSET (PSK_OFFSET+PSK_LENGTH)
 #define UNKNOWN_MODE_OFFSET (SERIAL_MODE_OFFSET+1)
+#define RAW_MODE_OFFSET (UNKNOWN_MODE_OFFSET+1)
 
 void LoadSettings() {
     uint8_t buffer[512];
@@ -65,6 +68,7 @@ void LoadSettings() {
     memcpy(psk, buffer+PSK_OFFSET, PSK_LENGTH);
     serialMode = buffer[SERIAL_MODE_OFFSET];
     unknown = buffer[UNKNOWN_MODE_OFFSET];
+    rawMode = buffer[RAW_MODE_OFFSET];
 }
 
 void setup()
@@ -100,6 +104,7 @@ void SaveSettings() {
   memcpy(buffer+PSK_OFFSET, psk, PSK_LENGTH);
   buffer[SERIAL_MODE_OFFSET] = serialMode;
   buffer[UNKNOWN_MODE_OFFSET] = unknown;
+  buffer[RAW_MODE_OFFSET] = rawMode;
   uint8_t sum = 0;
   for (int i = 2 ; i < 512 ; i++) {
      sum += buffer[i];
@@ -118,11 +123,12 @@ void processCommand(char* command) {
   Serial.print("Command: ");
   Serial.println(command);
   if (!strncmp(command, "help", 4)) {
-    strcpy(lineData, "ssid [AP ssid]\r\n"
+    strcpy(outLine, "ssid [AP ssid]\r\n"
                      "psk [AP password]\r\n"
                      "reboot\r\n"
                      "serial quiet|copy\r\n"
-                     "unknown 0|1\r\n");
+                     "unknown 0|1\r\n"
+                     "raw 0|1\r\n");
     return;
   }
   else if (!strncmp(command, "ssid", 4)) {
@@ -134,7 +140,7 @@ void processCommand(char* command) {
       }
     }
     SaveSettings();
-    strcpy(lineData, "OK\r\n");
+    strcpy(outLine, "OK\r\n");
   }
   else if (!strncmp(command, "psk", 3)) {
     memzero(psk, PSK_LENGTH);
@@ -145,23 +151,28 @@ void processCommand(char* command) {
       }
     }
     SaveSettings();
-    strcpy(lineData, "OK\r\n");
+    strcpy(outLine, "OK\r\n");
   }
   else if (!strncmp(command, "serial ", 7)) {
     serialMode = command[7];
     SaveSettings();
-    strcpy(lineData, "OK\r\n");
+    strcpy(outLine, "OK\r\n");
   }
   else if (!strncmp(command, "unknown ", 8)) {
     unknown = command[8]-'0';
     SaveSettings();
-    strcpy(lineData, "OK\r\n");
+    strcpy(outLine, "OK\r\n");
+  }
+  else if (!strncmp(command, "raw ", 4)) {
+    rawMode = command[4]-'0';
+    SaveSettings();
+    strcpy(outLine, "OK\r\n");
   }
   else if (!strncmp(command, "reboot", 6)) {
     ESP.reset();
   }
   else {
-    strcpy(lineData, "Unknown command\r\n");
+    strcpy(outLine, "Unknown command\r\n");
   }
 }
 
@@ -215,10 +226,10 @@ char* encoding (decode_results *results)
   }
 }
 
-void toLineData(decode_results* r) {
+void tooutLine(decode_results* r) {
     switch(r->decode_type) {
       case SYMA_R3:
-        sprintf(lineData, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u", 
+        sprintf(outLine, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u", 
           encoding(r), millis(), (int)r->bits, 
           (unsigned long)r->value, 
           (unsigned int)r->helicopter.symaR3.Throttle,
@@ -227,7 +238,7 @@ void toLineData(decode_results* r) {
           (unsigned int)r->helicopter.symaR3.Yaw );    
         break;
       case SYMA_R5:
-        sprintf(lineData, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u", 
+        sprintf(outLine, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u", 
           encoding(r), millis(), (int)r->bits, 
           (unsigned long)r->value, 
           (unsigned int)r->helicopter.symaR5.Throttle,
@@ -238,7 +249,7 @@ void toLineData(decode_results* r) {
           );    
         break;
       case USERIES:
-        sprintf(lineData, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u,turbo=%u,lbutton=%u,rbutton=%u", 
+        sprintf(outLine, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u,turbo=%u,lbutton=%u,rbutton=%u", 
           encoding(r), millis(), (int)r->bits, 
           (unsigned long)r->value, 
           (unsigned int)r->helicopter.uSeries.Throttle,
@@ -252,7 +263,7 @@ void toLineData(decode_results* r) {
           );    
         break;
       case FASTLANE:
-        sprintf(lineData, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u,trimdir=%u,fire=%u", 
+        sprintf(outLine, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u,trim=%u,trimdir=%u,fire=%u", 
           encoding(r), millis(), (int)r->bits, 
           (unsigned long)r->value, 
           (unsigned int)r->helicopter.fastlane.Throttle,
@@ -265,20 +276,38 @@ void toLineData(decode_results* r) {
           );    
         break;
       case PANASONIC:
-        sprintf(lineData, "%s,%ld,%d,%lx,address=%u", 
+        sprintf(outLine, "%s,%ld,%d,%lx,address=%u", 
           encoding(r), millis(), (int)r->bits, 
           (unsigned long)r->value, (unsigned int)r->panasonicAddress);    
         break;
       case MAGIQUEST:
-        sprintf(lineData, "%s,%ld,%d,%lx,magnitude=%u", 
+        sprintf(outLine, "%s,%ld,%d,%lx,magnitude=%u", 
           encoding(r), millis(), (int)r->bits, 
           (unsigned long)r->value, (unsigned int)r->magiquestMagnitude);    
         break;
-      default:
-        sprintf(lineData, "%s,%ld,%d,%lx", 
+      case UNKNOWN:
+        sprintf(outLine, "%s,%ld,%d,%lx", 
           encoding(r), millis(), (int)r->bits, 
-          (unsigned long)r->value);    
+          (unsigned long)r->value);
         break;
+      default:
+        sprintf(outLine, "%s,%ld,%d,%lx", 
+          encoding(r), millis(), (int)r->bits, 
+          (unsigned long)r->value);
+        break;
+    }
+    
+    if (rawMode) {
+        char *p = outLine + strlen(outLine);
+        sprintf(p, " [%u,",(unsigned int)(r->rawlen-1));
+        p += strlen(p);
+        for (int i=1; i<r->rawlen;i++) {
+          sprintf(p, "%lu", (unsigned long)(r->rawbuf[i] * USECPERTICK));
+          if (i+1<r->rawlen)
+            strcat(p, ",");
+          p += strlen(p);            
+        }
+        strcat(p,"]");
     }
 }
 
@@ -305,14 +334,14 @@ void loop()
   if (irrecv.decode(&result)) {
       irrecv.resume();  
       if (result.decode_type != UNKNOWN || unknown) {  
-          toLineData(&result);
+          tooutLine(&result);
 
           if (serialMode == COPY)
-            Serial.println(lineData);
+            Serial.println(outLine);
 
           for (int i = 0 ; i < MAX_CLIENTS ; i++) {
             if (serverClients[i] && serverClients[i].connected()) {
-              serverClients[i].write((const uint8_t*) lineData, (int)strlen(lineData));
+              serverClients[i].write((const uint8_t*) outLine, (int)strlen(outLine));
               serverClients[i].write("\r\n", 2);
             }
           }
@@ -327,7 +356,7 @@ void loop()
         if (commandLineLength > 0) {
           processCommand(commandLine);
           commandLineLength = 0;
-          serverClients[latestClient].write((const uint8_t*)lineData, strlen(lineData));
+          serverClients[latestClient].write((const uint8_t*)outLine, strlen(outLine));
         }
       }
       else if (commandLineLength < LINE_LENGTH-1) {

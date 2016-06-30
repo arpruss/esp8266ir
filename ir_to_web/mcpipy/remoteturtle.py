@@ -1,8 +1,4 @@
-﻿#
-# By Dominic Pruss
-#
-
-from mcturtle import *
+﻿from mcturtle import *
 from espremote import*
 t=Turtle()
 r=ESPRemote()
@@ -32,4 +28,4 @@ while True:
         t.go(1)
         t.pitch(90)
     else:
-        print hex(event.data)
+        t.mc.postToChat(hex(event.data))
