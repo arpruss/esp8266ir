@@ -104,7 +104,7 @@ class ESPRemoteEvent(object):
         if self.raw:
             out += " raw:"
             for i,r in enumerate(self.raw):
-                out += " +" if i%2 else " -"
+                out += "\t+" if i%2 else "\t-"
                 out += str(r)
         return out
         
@@ -174,5 +174,5 @@ if __name__=="__main__":
         r = ESPRemote()
     print "Thingy on "+str(r.address)+":"+str(r.port)
     for e in r.getevents():
-        print str(e)
+        print e
         
