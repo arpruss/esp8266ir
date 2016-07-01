@@ -7,6 +7,14 @@ import select
 class ESPRemoteEvent(object):
     def __init__(self, line):
         parts = line.strip().split(" ")
+        if parts[0] == "OK":
+            self.format = "IGNORE"
+            self.time = 0
+            self.bits = 0
+            self.data = 0
+            self.extras = {}
+            self.raw = None
+            return
         line = parts[0]
         try:
             d = line.strip().split(",")
@@ -104,7 +112,7 @@ class ESPRemoteEvent(object):
         if self.raw:
             out += " raw:"
             for i,r in enumerate(self.raw):
-                out += " +" if i%2 else " -"
+                out += "\t+" if i%2 else "\t-"
                 out += str(r)
         return out
         
@@ -157,7 +165,7 @@ class ESPRemote(object):
         return bool(select.select([self.sock], [], [], 0.0)[0])
         
     def setraw(self, v):
-        self.sock.send("raw "+("1" if v else "0")+"\n")      
+        self.sock.send("raw "+("1" if v else "0")+"\n")
 
     def setunknown(self, v):
         self.sock.send("unknown "+("1" if v else "0")+"\n")
@@ -167,12 +175,24 @@ class ESPRemote(object):
         
 if __name__=="__main__":
     from sys import argv
-    
-    if len(argv)>=2:
-        r = ESPRemote(argv[1])
+
+    if len(argv) > 1 and not argv[len(argv) - 1].startswith("-"):
+        r = ESPRemote(argv[len(argv) - 1])
     else:
         r = ESPRemote()
+    
     print "Thingy on "+str(r.address)+":"+str(r.port)
+
+    for i in range(1,len(argv)):
+        if argv[i] == "--raw" or argv[i] == "-raw":
+            r.setraw(True)
+        elif argv[i] == "--noraw" or argv[i] == "-noraw":
+            r.setraw(False)
+        elif argv[i] == "--unknown" or argv[i] == "-unknown":
+            r.setunknown(True)
+        elif argv[i] == "--nounknown" or argv[i] == "-nounknown":
+            r.setunknown(False)
+    
     for e in r.getevents():
-        print str(e)
+        print e
         
