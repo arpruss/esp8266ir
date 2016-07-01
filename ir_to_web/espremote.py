@@ -155,6 +155,12 @@ class ESPRemote(object):
                 
     def available(self):
         return bool(select.select([self.sock], [], [], 0.0)[0])
+        
+    def setraw(self, v):
+        self.sock.send("raw "+("1" if v else "0")+"\n")      
+
+    def setunknown(self, v):
+        self.sock.send("unknown "+("1" if v else "0")+"\n")
 
     def close(self):
         self.sock.close()
