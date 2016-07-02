@@ -23,23 +23,21 @@ char psk[PSK_LENGTH] = "yyyy";
 #include "c:/users/alexander/Documents/Arduino/private.h"
 #endif
 
-#define QUIET  ((uint8_t)'q')
-#define COPY   ((uint8_t)'c')
-
 #define LINE_LENGTH 256
 #define OUT_LINE_LENGTH 2000
 
 char commandLine[LINE_LENGTH];
 int commandLineLength = 0;
 char outLine[OUT_LINE_LENGTH];
-
 WiFiServer server(PORT);
 WiFiClient serverClients[MAX_CLIENTS];
 int latestClient = -1;
+
 static int RECV_PIN = 0; // IR decoder pin
-static uint8_t serialMode = QUIET;
+static uint8_t serialMode = 0;
 static uint8_t unknown = 0;
 static uint8_t rawMode = 0;
+static char okString[] = "OK\r\n";
 
 static IRrecv irrecv(RECV_PIN);
 
@@ -67,6 +65,10 @@ void LoadSettings() {
     memcpy(ssid, buffer+SSID_OFFSET, SSID_LENGTH);
     memcpy(psk, buffer+PSK_OFFSET, PSK_LENGTH);
     serialMode = buffer[SERIAL_MODE_OFFSET];
+    if (serialMode == 'q')
+      serialMode = 0;
+    else if (serialMode == 'c')
+      serialMode = 1;
     unknown = buffer[UNKNOWN_MODE_OFFSET];
     rawMode = buffer[RAW_MODE_OFFSET];
 }
@@ -123,12 +125,14 @@ void processCommand(char* command) {
   Serial.print("Command: ");
   Serial.println(command);
   if (!strncmp(command, "help", 4)) {
-    strcpy(outLine, "ssid [AP ssid]\r\n"
-                     "psk [AP password]\r\n"
+    strcpy(outLine,  "ssid [AP ssid]*\r\n"
+                     "psk [AP password]*\r\n"
                      "reboot\r\n"
-                     "serial quiet|copy\r\n"
+                     "serial 0|1\r\n"
                      "unknown 0|1\r\n"
-                     "raw 0|1\r\n");
+                     "raw 0|1\r\n"
+                     "save\r\n\r\n"
+                     "*: Needs reboot\r\n");
     return;
   }
   else if (!strncmp(command, "ssid", 4)) {
@@ -139,8 +143,7 @@ void processCommand(char* command) {
         ssid[i] = p[i];
       }
     }
-    SaveSettings();
-    strcpy(outLine, "OK\r\n");
+    strcpy(outLine, okString);
   }
   else if (!strncmp(command, "psk", 3)) {
     memzero(psk, PSK_LENGTH);
@@ -150,25 +153,25 @@ void processCommand(char* command) {
         psk[i] = p[i];
       }
     }
-    SaveSettings();
-    strcpy(outLine, "OK\r\n");
+    strcpy(outLine, okString);
   }
   else if (!strncmp(command, "serial ", 7)) {
-    serialMode = command[7];
-    SaveSettings();
-    strcpy(outLine, "OK\r\n");
+    serialMode = command[7]-'0';
+    strcpy(outLine, okString);
   }
   else if (!strncmp(command, "unknown ", 8)) {
     unknown = command[8]-'0';
-    SaveSettings();
-    strcpy(outLine, "OK\r\n");
+    strcpy(outLine, okString);
   }
   else if (!strncmp(command, "raw ", 4)) {
     rawMode = command[4]-'0';
-    SaveSettings();
-    strcpy(outLine, "OK\r\n");
+    strcpy(outLine, okString);
   }
-  else if (!strncmp(command, "reboot", 6)) {
+  else if (!strcmp(command, "save")) {
+    SaveSettings();
+    strcpy(outLine, okString);
+  }
+  else if (!strcmp(command, "reboot")) {
     ESP.reset();
   }
   else {
@@ -228,7 +231,7 @@ char* encoding (decode_results *results)
   }
 }
 
-void tooutLine(decode_results* r) {
+void toOutLine(decode_results* r) {
     switch(r->decode_type) {
       case SYMA_R3:
         sprintf(outLine, "%s,%ld,%d,%lx,throttle=%u,channel=%u,pitch=%u,yaw=%u", 
@@ -339,6 +342,7 @@ void loop()
         serverClients[i] = server.available();
         serverClients[i].write(DEVICE " ready\r\n");
         latestClient = i;
+        commandLineLength = 0;
         break;
       }
     }
@@ -351,9 +355,9 @@ void loop()
   if (irrecv.decode(&result)) {
       irrecv.resume();  
       if (result.decode_type != UNKNOWN || unknown) {  
-          tooutLine(&result);
+          toOutLine(&result);
 
-          if (serialMode == COPY)
+          if (serialMode)
             Serial.println(outLine);
 
           for (int i = 0 ; i < MAX_CLIENTS ; i++) {
