@@ -4,10 +4,12 @@ import socket
 import StringIO
 import select
 
+import time
+
 class ESPRemoteEvent(object):
     def __init__(self, line):
         parts = line.strip().split(" ")
-        if parts[0] == "OK":
+        if parts[0] == "OK" or parts[0] == "IRToWebThingy":
             self.format = "IGNORE"
             self.time = 0
             self.bits = 0
@@ -31,6 +33,7 @@ class ESPRemoteEvent(object):
             self.bits = 0
         try:
             if self.bits > 31:
+
                 self.data = long(d[3], 16)
             else:
                 self.data = int(d[3], 16)
@@ -129,18 +132,48 @@ class ESPRemoteEvent(object):
             return 0
 
 class ESPRemote(object):
-    def __init__(self, address="192.168.1.123", port=5678):
+    def __init__(self, address="192.168.1.123", port=5678, reconnect=True):
         self.address = address
         self.port = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((address, port))
+        self.connect()
+        self.reconnect = reconnect
+        self.lastPing = 0
         if not self.readline().startswith("IRToWebThingy"):
             raise Exception("Invalid IRToWebThingy")
+            
+    def connect(self,timeout=10.):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.settimeout(timeout)
+        self.sock.connect((self.address, self.port))
+        self.sock.settimeout(None)
+
+    def recv(self, n):        
+        if not self.reconnect:
+            return self.sock.recv(n)
+        while True:
+            if time.time() > self.lastPing + 5:
+                self.lastPing = time.time()
+                self.sock.send("\n")
+            r,_,_ = select.select([self.sock], [], [], 4.0)
+            if r:
+                try:
+                    return self.sock.recv(n)
+                except:
+                    self.sock.close()
+                    done = False
+                    while not done:
+                        try:
+                            self.connect(5.)
+                            done = True
+                        except:
+                            pass
             
     def readline(self):
         b = StringIO.StringIO(1024)
         while True:
-            d = self.sock.recv(1)
+            d = self.recv(1)
+            if len(d) == 0:
+                raise Exception("Disconnected")
             if d:
                 b.write(d)
             if d == "\n" or not d:
@@ -160,9 +193,10 @@ class ESPRemote(object):
                 self.close()
                 return
             yield e
-                
+                                
     def available(self):
-        return bool(select.select([self.sock], [], [], 0.0)[0])
+    # TODO: make work with reconnect
+        return bool(select.select([self.sock], [], [], 0.0))
         
     def setraw(self, v):
         self.sock.send("raw "+("1" if v else "0")+"\n")
